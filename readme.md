@@ -1,5 +1,5 @@
 # Linux Network Limiter
-Limit egress network bandwidth.
+Limit a Linux progress's egress network bandwidth.
 
 ## Prerequisites
 ```bash
