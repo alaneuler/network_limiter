@@ -1,7 +1,8 @@
 #!/usr/bin/bash
+set -e
 
 if [ $# -lt 2 ]; then
-    echo "Usage: limit.sh <pid_or_command> <speed> [interface]"
+    echo "Usage: limit.sh <pid | command> <speed> [interface]"
     exit 1
 fi
 
@@ -18,20 +19,21 @@ if [ ! -d "/sys/fs/cgroup/net_cls" ]; then
 fi
 
 cgroup="limited_bw_$RANDOM"
+major=$(printf '%04x' $((1 + $RANDOM % 65535)))
 minor=$(printf '%04x' $((1 + $RANDOM % 65535)))
-echo "Creating net_cls cgroup $cgroup with handle 10:$minor"
+echo "Creating net_cls cgroup $cgroup with class ID 0x$major:$minor"
 cgcreate -g net_cls:$cgroup
-cgset -r "net_cls.classid=0x10$minor" $cgroup
+cgset -r "net_cls.classid=0x$major$minor" $cgroup
 
 echo "Configuring tc..."
-tc qdisc add dev $interface root handle 10: htb 2>/dev/null
-tc class add dev $interface parent 10: classid "10:$minor" htb rate $speed
-tc filter add dev $interface parent 10: protocol ip prio 1 handle 1: cgroup
+tc qdisc add dev $interface root handle $major: htb
+tc class add dev $interface parent $major: classid $major:$minor htb rate $speed
+tc filter add dev $interface parent $major: handle 1: cgroup
 
 if [ "$poc" -eq "$poc" ] 2>/dev/null; then
     echo "Assume pid, limit existing process"
     cgclassify -g net_cls:$cgroup $poc
 else
-    echo "Assum command, execute the command"
+    echo "Assume command, execute the command"
     cgexec -g net_cls:$cgroup $poc
 fi
